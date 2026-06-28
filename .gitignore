@@ -1,0 +1,59 @@
+# Claude Code project config / memory
+.claude/
+
+# ---------------------------------------------------------------------------
+# Node runtime data — applies to ALL project folders
+# (bitcoin-0.1.0, bitcoin-0.1.3, bitcoin-nov08, bitcoin-nov08-rebuild)
+#
+# SENSITIVE: wallet.dat holds private keys. Never commit any of these.
+# ---------------------------------------------------------------------------
+
+# wallet.dat, addr.dat, blkindex.dat, blk*.dat, peers.dat, ...
+*.dat
+# debug.log, db.log
+*.log
+# Berkeley DB lock file
+.lock
+# Berkeley DB environment files (__db.001, __db.002, ...)
+__db.*
+# Berkeley DB environment directory
+database/
+
+# Build intermediates
+*.tmp
+*.o
+*.gch
+obj/
+
+# patch(1) leftovers (from applying anything in patches/)
+*.orig
+*.rej
+
+# Shared period toolchain (wxWidgets 2.8 + Berkeley DB 4.8 + Boost + libeay32.a),
+# built by toolchain/build-toolchain.sh into toolchain/build/. Only the build
+# OUTPUT is ignored; toolchain/openssl/ (period headers) and the script ARE tracked.
+toolchain/build/
+
+# Rebuilding Satoshi's 0.1.x GUI from his ORIGINAL makefile (toolchain/make.sh)
+# drops the result at the folder ROOT, next to (and over) the original bitcoin.exe.
+# The committed bitcoin.exe there stays Satoshi's ORIGINAL: it is kept canonical
+# with `git update-index --skip-worktree bitcoin-0.1.x/bitcoin.exe`, so a local
+# rebuild never dirties or commits it (a cloner who wants to rewrite it just
+# re-runs `update-index --no-skip-worktree`). The rebuild's runtime DLLs at the
+# root are git-ignored (the original ships mingwm10.dll instead):
+bitcoin-0.1.0/libgcc_s_dw2-1.dll
+bitcoin-0.1.0/libstdc++-6.dll
+bitcoin-0.1.3/libgcc_s_dw2-1.dll
+bitcoin-0.1.3/libstdc++-6.dll
+# (any stray build leftovers if someone builds in src/ are covered by *.o/*.gch/obj/)
+
+# nov08 rebuild: generated OpenSSL import library (the toolchain provides one;
+# bitcoin.exe and libeay32.dll are committed so it runs directly).
+bitcoin-nov08-rebuild/libeay32.a
+bitcoin-nov08-rebuild/libeay32.def
+
+# irc/<network>/bitcoin-* clients: nothing IRC-specific is needed here. Their
+# committed deliverables (bitcoin.exe + libeay32.dll + libgcc_s_dw2-1.dll +
+# libstdc++-6.dll, all tracked) are NOT ignored; a from-source rebuild only adds
+# obj/, *.gch and *.o (build) and *.dat/*.log/__db.*/database/.lock (runtime),
+# every one of which is already covered by the global rules above.

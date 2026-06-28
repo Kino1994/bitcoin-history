@@ -1,0 +1,104 @@
+diff -ru a/irc.cpp b/irc.cpp
+--- a/irc.cpp
++++ b/irc.cpp
+@@ -4,6 +4,14 @@
+ 
+ #include "headers.h"
+ 
++// network-baked (lfnet): use LFnet; keep the original nick
++#define IRC_SERVER "irc.lfnet.org"
++
++// irc-fix: IRC server selectable at build time (default Freenode; -DIRC_SERVER=... for LFnet)
++#ifndef IRC_SERVER
++#define IRC_SERVER "chat.freenode.net"
++#endif
++
+ 
+ 
+ 
+@@ -110,7 +118,7 @@
+             if (vWords[0] == "PING")
+             {
+                 strLine[1] = 'O';
+-                strLine += '\r';
++                strLine += "\r\n";
+                 Send(hSocket, strLine.c_str());
+                 continue;
+             }
+@@ -161,7 +169,7 @@
+ 
+     while (!fShutdown)
+     {
+-        struct hostent* phostent = gethostbyname("chat.freenode.net");
++        struct hostent* phostent = gethostbyname(IRC_SERVER);
+         CAddress addrConnect(*(u_long*)phostent->h_addr_list[0], htons(6667));
+ 
+         SOCKET hSocket;
+@@ -183,14 +191,24 @@
+                 return;
+         }
+ 
++#ifdef IRC_FORCE_XNICK
++        // Freenode Z-lines any nick that base58-encodes an address: the anti-spam
++        // targets the address-blob shape itself (both the 2009 "u..." and a swapped
++        // "n..." get banned — the latter registers but is Z-lined seconds after
++        // JOIN), not the prefix character. Only an "x<digits>" nick survives, so the
++        // Freenode build forces it. That means it cannot advertise a peer there, but
++        // it can register, stay connected and mine with a supplied peer.
++        string strMyName = strprintf("x%u", GetRand(1000000000));
++#else
+         string strMyName = EncodeAddress(addrLocalHost);
+ 
+         if (!addrLocalHost.IsRoutable())
+             strMyName = strprintf("x%u", GetRand(1000000000));
++#endif
+ 
+ 
+-        Send(hSocket, strprintf("NICK %s\r", strMyName.c_str()).c_str());
+-        Send(hSocket, strprintf("USER %s 8 * : %s\r", strMyName.c_str(), strMyName.c_str()).c_str());
++        Send(hSocket, strprintf("NICK %s\r\n", strMyName.c_str()).c_str());
++        Send(hSocket, strprintf("USER %s 8 * : %s\r\n", strMyName.c_str(), strMyName.c_str()).c_str());
+ 
+         if (!RecvUntil(hSocket, " 004 "))
+         {
+@@ -202,8 +220,8 @@
+         }
+         Sleep(500);
+ 
+-        Send(hSocket, "JOIN #bitcoin\r");
+-        Send(hSocket, "WHO #bitcoin\r");
++        Send(hSocket, "JOIN #bitcoin\r\n");
++        Send(hSocket, "WHO #bitcoin\r\n");
+ 
+         string strLine;
+         while (!fShutdown && RecvLineIRC(hSocket, strLine))
+diff -ru a/net.cpp b/net.cpp
+--- a/net.cpp
++++ b/net.cpp
+@@ -140,7 +140,9 @@
+     char* pszGet;
+     char* pszKeyword;
+ 
+-    for (int nLookup = 0; nLookup <= 1; nLookup++)
++    // irc-fix: resolve the echo services by name (nLookup=1 only) instead of also
++    // dialling their dead 2008 hard-coded IPs first, which would block at startup.
++    for (int nLookup = 1; nLookup <= 1; nLookup++)
+     for (int nHost = 1; nHost <= 2; nHost++)
+     {
+         if (nHost == 1)
+@@ -150,6 +152,7 @@
+             if (nLookup == 1)
+             {
+                 struct hostent* phostent = gethostbyname("www.ipaddressworld.com");
++                if (!phostent) continue;
+                 addrConnect = CAddress(*(u_long*)phostent->h_addr_list[0], htons(80));
+             }
+ 
+@@ -168,6 +171,7 @@
+             if (nLookup == 1)
+             {
+                 struct hostent* phostent = gethostbyname("checkip.dyndns.org");
++                if (!phostent) continue;
+                 addrConnect = CAddress(*(u_long*)phostent->h_addr_list[0], htons(80));
+             }
+ 

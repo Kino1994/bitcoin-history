@@ -1,0 +1,48 @@
+wxWidgets 2.8.12: build with a modern GCC 10 / MinGW-w64 (compilation patch).
+
+Needed by every GUI build (full-rebuild, and the IRC 0.1.0/0.1.3 clients).
+This is a COMPILATION patch (modern-toolchain fix), not a change to Satoshi's
+code.
+
+wxWidgets 2.8.12 (2011) predates GCC 10. Two issues arise; only ONE needs a
+source edit:
+
+  1. _mkdir / _rmdir  (THIS patch, required).
+     include/wx/filefn.h maps the POSIX file ops through wxPOSIX_IDENT, which
+     uses the underscore spellings (_mkdir, _rmdir) for every compiler except
+     __MINGW64__. A 32-bit MinGW-w64 toolchain defines only __MINGW32__, so it
+     takes the underscore branch — but those symbols live in <direct.h>, which
+     filefn.h does not include. Pull it in for 32-bit MinGW.
+
+  2. narrowing of `case -1:` over a DWORD in src/msw/utilsexc.cpp.
+     This is NOT a wxWidgets bug: it only fires because GCC 10 defaults to a
+     newer C++ standard (gnu++14), where braced/`case` narrowing is an error.
+     Build wxWidgets in its native standard and it disappears — NO source edit,
+     NO -Wno-narrowing hack:
+         CXXFLAGS="-std=gnu++98 -fpermissive -w"
+     (Verified: wxWidgets 2.8.12 builds clean this way with only fix #1.)
+     `-Wno-narrowing` is a fallback only if you insist on a newer -std.
+
+The third fix some guides mention (__atomic_compare_exchange in Berkeley DB 4.8)
+belongs to Berkeley DB, not wxWidgets — see berkeley-db-4.8-gcc-atomic.patch.
+It is only needed on build paths that link Berkeley DB.
+
+Apply from inside the wxWidgets-2.8.12 source tree:
+    patch -p1 < wxWidgets-2.8.12-mingw.patch
+
+--- a/include/wx/filefn.h
++++ b/include/wx/filefn.h
+@@ -203,6 +203,13 @@
+
+     // functions
+
++    // mingw fix: on 32-bit MinGW-w64 only __MINGW32__ is defined, so
++    // wxPOSIX_IDENT uses the underscore spellings (_mkdir/_rmdir) which live in
++    // <direct.h> — pull it in so they are declared.
++    #if defined(__MINGW32__) && !defined(__MINGW64__)
++        #include <direct.h>
++    #endif
++
+     // MSVC and compatible compilers prepend underscores to the POSIX function
+     // names, other compilers don't and even if their later versions usually do
+     // define the versions with underscores for MSVC compatibility, it's better
