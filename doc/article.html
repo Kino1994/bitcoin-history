@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Executable Archaeology of Early Bitcoin: November 2008 Reconstruction and 0.1.x IRC Revival</title>
+<style>
+  @page { size: A4; margin: 14mm 15mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Times New Roman", "Liberation Serif", Georgia, serif;
+         font-size: 9.4pt; line-height: 1.17; color: #111; margin: 0; }
+
+  .wrap { column-count: 2; column-gap: 6.5mm; text-align: justify; }
+  .span { column-span: all; -webkit-column-span: all; }
+
+  h1 { font-size: 17pt; line-height: 1.18; text-align: center; margin: 0 0 8pt;
+       font-weight: bold; }
+  .authors { text-align: center; font-size: 11pt; margin: 0 0 1pt; }
+  .affil   { text-align: center; font-size: 8.8pt; font-style: italic; color: #333; margin: 0 0 1pt; }
+  .corr    { text-align: center; font-size: 8.2pt; color: #555; margin: 0 0 10pt; }
+
+  .abstract { font-size: 9pt; margin: 0 0 5pt; }
+  .abstract b { font-variant: small-caps; }
+  .keywords { font-size: 9pt; margin: 0 0 12pt; }
+  .keywords b { font-variant: small-caps; font-style: italic; }
+  hr.rule { border: none; border-top: 1px solid #000; margin: 4pt 0 9pt; }
+
+  h2 { font-size: 9.6pt; text-align: center; font-variant: small-caps;
+       font-weight: bold; margin: 5pt 0 2pt; }
+  h3 { font-size: 9.4pt; font-style: italic; font-weight: normal; margin: 7pt 0 3pt; }
+  p { margin: 0 0 3pt; }
+  p.ind { text-indent: 12pt; }
+
+  code, pre { font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace; }
+  code { font-size: 8pt; }
+  pre { font-size: 6.5pt; line-height: 1.32; background: #f7f8fa; border: 1px solid #d8dce0;
+        border-radius: 3px; padding: 4px 6px; margin: 3pt 0 2pt; white-space: pre-wrap;
+        overflow-wrap: anywhere; text-align: left; }
+  .listing { margin: 5pt 0 6pt; }
+  .caption { font-size: 8pt; text-align: center; color: #333; margin: 1pt 0 0; }
+  .hash { color: #b10028; }
+  .ok { color: #137333; font-weight: bold; }
+
+  .refs { font-size: 8.3pt; line-height: 1.18; break-inside: avoid; }
+  .refs p { margin: 0 0 1.5pt; text-indent: -10pt; padding-left: 10pt;
+            break-inside: avoid; }
+  .cite { font-size: 8.4pt; background: #f3f4f6; border-left: 2px solid #999;
+          padding: 4px 8px; margin: 4pt 0; }
+  .footer { font-size: 7.4pt; color: #555; text-align: center; margin-top: 10pt; }
+  a { color: #0b3d91; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== full-width masthead ===== -->
+  <div class="span">
+    <h1>Executable Archaeology of Early Bitcoin:<br>
+        Reconstructing the November 2008 Preview and Reviving 0.1.x IRC Peer Discovery</h1>
+    <p class="authors">Joaqu&iacute;n Antonio De Vicente L&oacute;pez</p>
+    <p class="affil"><code>bitcoin-history</code> project</p>
+    <p class="corr">June 24, 2026</p>
+
+    <hr class="rule">
+
+    <p class="abstract"><b>Abstract&mdash;</b>In November 2008, months before the public launch,
+    Satoshi Nakamoto circulated a preview of Bitcoin's source code that contained only four
+    files (<code>main</code> and <code>node</code>) and therefore could not be compiled. We
+    reconstruct it into a wxWidgets desktop node that compiles, links and executes on
+    Windows&nbsp;XP&mdash;booting in a real window from which the user mines with a
+    <em>Start&nbsp;mining</em> button&mdash;reproducing the network's earliest known genesis
+    block <em>byte&#8209;for&#8209;byte</em>. In
+    doing so we identify a concrete, independently verifiable consensus difference from the first
+    public release (0.1.0): a renumbering of the script opcodes <code>OP_CODESEPARATOR</code> and
+    <code>OP_CHECKSIG</code>, which is necessary for the genesis Merkle root to match. We also
+    document a reproducible build toolchain and present runtime traces of the node creating its
+    chain by mining and reloading it across restarts, and&mdash;for the first public releases in
+    the same archive (0.1.0/0.1.3), recompiled from source with a small fix&mdash;show that their
+    IRC-based peer discovery still works today, both on the surviving LFnet network and, after
+    bridging four layers of protocol and anti-abuse drift, on modern Freenode.</p>
+
+    <p class="keywords"><b>Index Terms&mdash;</b>Bitcoin, software archaeology, genesis block,
+    consensus serialization, reproducible builds, cryptocurrency history.</p>
+    <hr class="rule">
+  </div>
+
+  <!-- ===== two-column body ===== -->
+
+  <h2>I.&nbsp;&nbsp;Introduction</h2>
+  <p class="ind">Bitcoin's official genesis block (January 2009) carries the headline
+  <em>"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks."</em> An
+  <em>earlier</em> genesis exists, however, belonging to a private testnet that Satoshi
+  abandoned; its hash is
+  <code class="hash">000006b1&hellip;cfaa646</code>. It originates from the source preview
+  Satoshi released on request in November&nbsp;2008, preserved because the user <em>Cryddit</em>
+  posted it on the BitcoinTalk forum in 2013&nbsp;[1]; a narrative account of this alternative
+  genesis block is given by serhack&nbsp;[2].</p>
+
+  <p class="ind">That preview is not self-contained: its own <code>readme</code> states
+  <em>"These are just the main files. The rest is coming soon."</em> The support modules, the
+  database layer and the program entry point are absent, and the code depends on wxWidgets,
+  Boost and Berkeley&nbsp;DB. Consequently it has historically been an object of study rather
+  than an executable artifact. This paper makes it run, and uses the byte&#8209;exact genesis
+  block as an oracle to recover an undocumented detail of early Bitcoin consensus. It then turns to
+  the first public releases held in the same archive&mdash;0.1.0 and 0.1.3&mdash;and shows that,
+  recompiled from source with a one&#8209;line-class fix, their IRC peer discovery can be brought back
+  to life on the surviving LFnet network and on modern Freenode (Section&nbsp;VI).</p>
+
+  <h2>II.&nbsp;&nbsp;The Reconstruction</h2>
+  <p class="ind">The objective was a native Windows&nbsp;XP binary derived from the preview&mdash;whose
+  source, together with the first public releases (0.1.0/0.1.3) studied in Section&nbsp;VI, is archived
+  by the Satoshi Nakamoto Institute&nbsp;[3]&mdash;while altering Satoshi's original code as little as
+  possible. The components are:</p>
+  <p><i>a) Database layer.</i> The preview indexes transactions by on-disk
+  <em>position</em> (a "TxPos" scheme), not the later <code>CTxIndex</code> of 0.1.0. Its
+  interface, deduced from the call sites, was reimplemented over a flat-file key/value store in
+  place of Berkeley&nbsp;DB.</p>
+  <p><i>b) Support modules.</i> Serialization, <code>uint256</code>, <code>bignum</code>,
+  <code>script</code>, key handling and SHA were ported from <code>bitcoin-0.1.0</code>, the
+  closest surviving source.</p>
+  <p><i>c) User interface and portability.</i> Because the preview's own <code>ui.cpp</code> was
+  never released, a new wxWidgets front-end (<code>ui_app.cpp</code>) was written as a
+  <em>recreation</em>&mdash;a small status window that reports the genesis hash, best block and
+  height, peer count, and the wallet's keys and address, and mines from a <em>Start&nbsp;mining</em>
+  button. It is not a recovery of Satoshi's never&#8209;shipped November&nbsp;2008 UI; only the
+  consensus and genesis are byte&#8209;exact. Boost and Berkeley&nbsp;DB were removed (only wxWidgets
+  is linked, per item&nbsp;<i>a</i>), and a partial Win32&#8596;POSIX shim was added for native
+  verification.</p>
+  <p><i>d) Unreleased subsystems.</i> Inert stubs stand in for the "market" subsystem
+  (products, tables, atoms) that the preview references but whose code was never released.</p>
+  <p><i>e) Period cryptography.</i> The build compiles against the OpenSSL&nbsp;0.9.8 headers
+  and links the <code>libeay32.dll</code> that Satoshi himself shipped, leaving
+  <code>bignum.h</code> and <code>key.h</code> unmodified. Cross-compilation uses MinGW.</p>
+
+  <h2>III.&nbsp;&nbsp;The Byte-Exact Genesis</h2>
+  <p class="ind">Once linked, the node executes the integrity self-test Satoshi left in the
+  code. The computed Merkle root, however, did not match the hard-coded value: we obtained
+  <code class="hash">97f26f69&hellip;</code> where <code class="hash">769a5e93&hellip;</code> was
+  expected. Because the block structure was identical (same fields, identical coinbase
+  <code>04695dbf0e</code>), the discrepancy had to lie in the <em>serialized bytes</em>.</p>
+
+  <h3>A. Anchoring the target</h3>
+  <p class="ind">A message in an r/btc thread&nbsp;[4] supplied the genesis header preimage, which we
+  verified to double&#8209;SHA256 to the genesis hash (Listing&nbsp;1). This both confirms that
+  the header serialization is correct and fixes the target: the coinbase transaction must
+  serialize so that its double&#8209;SHA256 equals <code class="hash">769a5e93&hellip;</code>.</p>
+
+  <div class="listing">
+  <pre>SHA256(SHA256(
+  00&hellip;00             (hashPrevBlock = 0)
+  E38380EC&hellip;935E9A76  (hashMerkleRoot, internal byte order)
+  A00BC848          (nTime  = 1221069728)
+  14000000          (nBits  = 20)
+  BB290200 ))       (nNonce = 141755)
+ = <span class="hash">000006b15d1327&hellip;cfaa646</span>     <span class="ok">&#10003; equals the genesis hash</span></pre>
+  <p class="caption">Listing 1. Verified genesis block-header preimage.</p>
+  </div>
+
+  <h3>B. Resolving the difference</h3>
+  <p class="ind">Dumping the coinbase bytes and comparing field by field, everything matched
+  except the <code>scriptPubKey</code>. With the target hash known, the script's two opcode
+  bytes (<code>OP&#8209;? &lt;pubkey&gt; OP&#8209;?</code>) were brute-forced, yielding a single
+  solution: <code>0xA9</code> and <code>0xAA</code>. Our code, inherited from 0.1.0, used
+  <code>0xAB</code>/<code>0xAC</code>.</p>
+  <p class="ind">The cause is an opcode renumbering. Between nov08 and 0.1.0, Satoshi
+  <em>inserted</em> <code>OP_HASH160</code> (0xA9) and <code>OP_HASH256</code> (0xAA) into the
+  opcode enumeration, shifting <code>OP_CODESEPARATOR</code> from 0xA9 to 0xAB and
+  <code>OP_CHECKSIG</code> from 0xAA to 0xAC. The genesis <code>scriptPubKey</code> is
+  <code>OP_CODESEPARATOR &lt;pubkey&gt; OP_CHECKSIG</code>, so those two bytes alter the
+  transaction hash. Restoring the nov08 values makes both the Merkle root and the block hash
+  exact (Listing&nbsp;2).</p>
+
+  <div class="listing">
+  <pre>hashMerkleRoot = <span class="hash">769a5e93fac273fd825da42d39ead975b5d712b2d50953f35a4fdebdec8083e3</span>  <span class="ok">&#10003;</span>
+block hash     = <span class="hash">000006b15d1327d67e971d1de9116bd60a3a01556c91b6ebaa416ebc0cfaa646</span>  <span class="ok">&#10003;</span></pre>
+  <p class="caption">Listing 2. Byte-exact genesis after restoring OP_CODESEPARATOR=0xA9, OP_CHECKSIG=0xAA.</p>
+  </div>
+
+  <h3>C. Provenance and validation</h3>
+  <p class="ind">The recovery rests on a single external datum&mdash;the header preimage&mdash;
+  posted as an anonymous, later-deleted comment in a public forum thread, whose authenticity was
+  not independently established beforehand. The brute force closes the loop and validates it
+  <em>a posteriori</em>: the preimage fixes the target Merkle root; the search over the
+  2<sup>16</sup> possible pairs of opcode bytes returns <em>exactly one</em> solution; and that
+  solution yields a genesis whose Merkle root and block hash match the constants Satoshi
+  hard&#8209;coded. A false positive&mdash;two incorrect bytes accidentally producing the
+  target&mdash;has probability on the order of 2<sup>&minus;256</sup> per trial, so the unique
+  match is the genuine encoding rather than an artifact. The evidence is thus self-closing: it
+  both authenticates the anonymous source and recovers the opcode values <em>without</em> access
+  to nov08's unreleased <code>script.h</code>.</p>
+
+  <h2>IV.&nbsp;&nbsp;Runtime Verification</h2>
+  <p class="ind">Under Wine&mdash;and, by construction, on Windows&nbsp;XP&mdash;the node boots into
+  its wxWidgets status window, creates the genesis block, generates a real ECDSA key through
+  <code>libeay32.dll</code>, and brings up the peer-to-peer subsystem on the original
+  port&nbsp;2222; the window reports the genesis hash, best block and height, the peer count, and
+  the wallet's keys and address.</p>
+
+  <h3>A. Mining a chain</h3>
+  <p class="ind">Pressing the window's <em>Start&nbsp;mining</em> button enables generation and
+  launches <code>BitcoinMiner</code>, which mines blocks at the preview's test difficulty
+  (<code>MINPROOFOFWORK=20</code>). Listing&nbsp;3 shows two consecutive blocks; note
+  that the second block's <code>hashPrevBlock=000002</code> equals the prefix of the first
+  block's hash, i.e. the blocks correctly chain back to the genesis
+  (<code>hashPrevBlock=000006</code>).</p>
+
+  <div class="listing">
+  <pre>Mining enabled (-gen): launching BitcoinMiner...
+ThreadSocketHandler / ThreadOpenConnections / ThreadMessageHandler started
+Running BitcoinMiner with 1 transactions in block
+supercoin found
+  hash:   <span class="hash">000002632794340f154c03ea4ebae3ac6de5e282f33071af98aa63a292ad2313</span>
+  target: 00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+CBlock(hashPrevBlock=<b>000006</b>, hashMerkleRoot=fb1c58, nNonce=429672, vtx=1)
+Running BitcoinMiner with 1 transactions in block
+supercoin found
+  hash:   <span class="hash">00000bf22eee364c15f08b05396a7676e91c1ce7ecf4d2e2f2390886cfd8514a</span>
+  target: 00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+CBlock(hashPrevBlock=<b>000002</b>, hashMerkleRoot=e2528b, nNonce=87838, vtx=1)</pre>
+  <p class="caption">Listing 3. Live mining output (first two mined blocks; chained back to genesis).</p>
+  </div>
+
+  <h3>B. Persistence across restarts</h3>
+  <p class="ind">After mining seven blocks the node is stopped and relaunched, this time
+  <em>without</em> pressing <em>Start&nbsp;mining</em>. It rebuilds the block index from
+  <code>blk0001.dat</code> by scanning the block
+  file&mdash;the preview keeps no persisted index&mdash;and reports a best height of seven
+  (eight blocks including the genesis), confirming that the locally produced chain survives a
+  restart (Listing&nbsp;4).</p>
+
+  <div class="listing">
+  <pre>Loading block index...
+  <b>blocks=8  best_height=7</b>
+Loading wallet...
+  keys=1  transactions=0
+Starting node (port 2222)...
+bound to addrLocalHost = 192.168.1.67:2222
+ThreadSocketHandler / ThreadOpenConnections / ThreadMessageHandler started</pre>
+  <p class="caption">Listing 4. Reload without mining: the chain persists at height 7.</p>
+  </div>
+
+  <p class="ind">The miner required one fix. The global <code>keyUser</code>&mdash;the key the
+  coinbase pays to&mdash;was declared but never initialized, as the code that set it lived in the
+  unreleased init/UI; <code>keyUser.GetPubKey()</code> therefore invoked
+  <code>i2o_ECPublicKey()</code> on an <code>EC_KEY</code> with no public point and faulted.
+  Initializing it at startup resolves the crash.</p>
+
+  <h2>V.&nbsp;&nbsp;Limitations</h2>
+  <p class="ind">The node does not synchronize with today's Bitcoin network: it speaks the 2008
+  protocol at test difficulty, and the original testnet no longer exists, so the mined coins are
+  of no value. The owner index and a few rarely-exercised <code>SIGHASH</code> branches&mdash;
+  which lived in the unreleased code&mdash;are approximated, and the market subsystem is inert.</p>
+
+  <h2>VI.&nbsp;&nbsp;The 0.1.x Clients and IRC Peer Discovery</h2>
+  <p class="ind">The same archive holds Satoshi's first public releases&mdash;0.1.0 (January 2009)
+  and the near-identical 0.1.3. Run today, both sit at height&nbsp;0 for two independent reasons.
+  First, the miner refuses to run while isolated, blocking on <code>while (vNodes.empty())</code>;
+  supplying a single peer (even an inert held TCP socket, which enters <code>vNodes</code> on
+  <code>accept()</code> before any handshake) releases it, and with <em>Generate&nbsp;Coins</em> on the
+  chain then grows on top of the January&nbsp;2009 genesis at difficulty&nbsp;1. Second, their only
+  peer discovery is IRC&mdash;both are hard-coded to the <code>#bitcoin</code> channel on
+  <code>chat.freenode.net</code>, where a node advertises itself with a nickname that base58-encodes
+  its IP and port via a packed <code>struct&nbsp;ircaddr&nbsp;{int&nbsp;ip;&nbsp;short&nbsp;port;}</code>
+  (<code>EncodeAddress</code>, <code>irc.cpp</code>); peers read the channel, decode the
+  <code>u&lt;base58check&gt;</code> nicks back to addresses and connect. We revived this by
+  <strong>recompiling both GUI clients from source</strong> with a small fix in <code>irc.cpp</code>,
+  shipped as four ready-to-run, per-network builds under <code>irc/</code>
+  (<code>freenode/</code> and <code>lfnet/</code>, each holding <code>bitcoin-0.1.0</code> and
+  <code>bitcoin-0.1.3</code>) in&nbsp;[5].</p>
+
+  <h3>A. Rebuilding the GUI clients from source</h3>
+  <p class="ind">Unlike the minimal November&nbsp;2008 rebuild of Sections II&ndash;IV, which links
+  only wxWidgets, 0.1.0/0.1.3 are full <strong>wxWidgets</strong> desktop applications backed by
+  Berkeley&nbsp;DB, so the build needs a period GUI/database stack cross-compiled for 32-bit Windows.
+  A single shared toolchain, under <code>toolchain/</code>, serves <em>every</em> from-source build in
+  the project&mdash;the November&nbsp;2008 rebuild, 0.1.0/0.1.3, and the IRC clients alike.
+  <code>toolchain/build-toolchain.sh</code> cross-builds, into <code>toolchain/build/</code>,
+  wxWidgets&nbsp;2.8.12 (built <em>ANSI</em>, not Unicode, and <em>static</em>, to match the
+  <code>wxmsw28</code> library names in Satoshi's makefile), Berkeley&nbsp;DB&nbsp;4.8.30.NC (the
+  <code>db_cxx</code> C++ API), Boost&nbsp;1.55 (headers only&mdash;Bitcoin links no Boost libraries),
+  and a <code>libeay32.a</code> import library generated&mdash;via <code>gendef</code>/<code>dlltool</code>&mdash;from
+  Satoshi's own <code>libeay32.dll</code>; the period OpenSSL&nbsp;0.9.8 headers live in
+  <code>toolchain/openssl/</code>. The cryptography is thus byte&#8209;for&#8209;byte Satoshi's, reused
+  from the reconstruction.</p>
+
+  <p class="ind">Every project builds from its <strong>original makefile, unedited</strong>, through a
+  helper <code>toolchain/make.sh</code> that adapts only the <em>environment</em>: a <code>PATH</code>
+  shim so the makefile's literal <code>g++</code>/<code>windres</code> resolve to the
+  <code>i686-w64-mingw32</code> cross-tools, with <code>g++</code> driven in the period
+  <code>-std=gnu++98</code>; and overrides of the makefile's <code>INCLUDEPATHS</code>/<code>LIBPATHS</code>/<code>LIBS</code>
+  so they point at <code>toolchain/</code> rather than the 2009 Windows install roots. Neither the
+  makefile nor the source is ever touched. (The November&nbsp;2008 rebuild's makefile, modelled on
+  Satoshi's 0.1.0 one, instead asks for <code>-std=gnu++0x</code> and <code>-fpermissive</code>,
+  because its reconstructed <code>serialize.h</code> uses <code>std::true_type</code> and its
+  <code>main.cpp</code> takes the address of an rvalue.)</p>
+
+  <p class="ind">A modern GCC&nbsp;10 / MinGW&#8209;w64 cross-compiler needs three source-level fixes to
+  the <em>libraries</em> (never to Bitcoin's own source), packaged as reusable diffs in
+  <code>patches/compilation/</code> and applied automatically by <code>build-toolchain.sh</code>:
+  Berkeley&nbsp;DB&nbsp;4.8 defines a function <code>__atomic_compare_exchange</code> that is now a GCC
+  built&#8209;in (renamed in <code>dbinc/atomic.h</code>); wxWidgets&nbsp;2.8's <code>filefn.cpp</code>
+  fails to find <code>_mkdir</code>/<code>_rmdir</code> because its <code>wxPOSIX_IDENT</code> macro
+  takes the underscore spellings for every compiler except <code>__MINGW64__</code>, whereas a 32-bit
+  MinGW&#8209;w64 toolchain defines only <code>__MINGW32__</code> and those functions live in
+  <code>&lt;direct.h&gt;</code> (added under an <code>#ifdef</code>); and the resource compiler
+  <code>windres</code> must be passed only <code>-I</code>/<code>-D</code> flags, not the compiler flags
+  from <code>wx-config</code>. A fourth issue&mdash;GCC's narrowing rejection of a <code>case&nbsp;-1</code>
+  over a <code>DWORD</code>&mdash;needs no patch at all: building wxWidgets in <code>-std=gnu++98</code>
+  sidesteps it. Finally, because Satoshi's makefile links the C/C++ runtime <em>dynamically</em>, the
+  executable imports the MinGW runtime DLLs <code>libgcc_s_dw2-1.dll</code> and <code>libstdc++-6.dll</code>
+  (the modern MinGW&#8209;w64 equivalents of the <code>mingwm10.dll</code> Satoshi shipped in 2009),
+  which are placed next to <code>bitcoin.exe</code> and <code>libeay32.dll</code>&mdash;leaving the same
+  dependency footprint (<code>libeay32.dll</code> plus XP system DLLs and these two runtimes) as the
+  original 2009 binary.</p>
+
+  <p class="ind">The IRC clients are committed as four per-network folders&mdash;<code>irc/freenode/bitcoin-0.1.0</code>,
+  <code>irc/freenode/bitcoin-0.1.3</code>, <code>irc/lfnet/bitcoin-0.1.0</code>,
+  <code>irc/lfnet/bitcoin-0.1.3</code>&mdash;each being exactly <code>bitcoin-0.1.x/src</code> with the
+  network's patch applied (<code>patches/code/&lt;network&gt;/&lt;version&gt;.patch</code>). That patch
+  carries the <code>irc.cpp</code> fix (the <code>\r\n</code> line terminator and the
+  <code>GetMyExternalIP</code> domain-name fix) and <strong>bakes the network choice into the
+  source</strong> as a <code>#define</code> (Freenode: <code>#define IRC_FORCE_XNICK</code>, default
+  server <code>chat.freenode.net</code>; LFnet: <code>#define IRC_SERVER "irc.lfnet.org"</code>), so each
+  folder builds with no <code>-D</code> flags&mdash;the only difference between the Freenode and LFnet
+  patch is that one line. More broadly, all patches are committed under <code>patches/</code>,
+  deliberately split into <code>patches/code/</code> (version-to-version <em>source</em> diffs:
+  <code>nov08-to-rebuild</code>, <code>nov08-to-0.1.0</code>, <code>0.1.0-to-0.1.3</code>, and the four
+  IRC patches) and <code>patches/compilation/</code> (the modern-GCC <em>library</em> fixes above), so
+  the whole pipeline is reproducible from the archived source plus committed diffs.</p>
+  <p class="ind"><i>Release vs. debug, and logging.</i> In <code>util.h</code>, <code>printf</code> is
+  <code>#define</code>d to <code>OutputDebugStringF</code>, which opens a <code>debug.log</code> file
+  only when <code>__WXDEBUG__</code> is set&mdash;i.e. in a <em>debug</em> build. Satoshi's distributed
+  0.1.x binaries were debug builds, which is why running them writes a <code>debug.log</code>. Our
+  from-source binaries are <em>release</em> builds, necessarily, because they link the wxWidgets
+  libraries built <code>--disable-debug</code> and a <code>__WXDEBUG__</code> application linked against
+  release wx would mismatch its object layout; a release build therefore emits no <code>debug.log</code>
+  and its trace goes to block-buffered <code>stdout</code>, invisible mid-run under Wine even though the
+  client is fully registered&mdash;the reliable indicator being a <em>persistent</em> TCP connection to
+  the ircd (an unregistered client is dropped within a minute). The static GUI links to ~10.5&nbsp;MB;
+  stripping the debugger symbol tables (<code>strip</code>) reduces each executable to ~6.8&nbsp;MB,
+  essentially the size of Satoshi's 6.4&nbsp;MB original, without altering its behaviour.</p>
+  <p class="ind"><i>A startup hang, and its fix.</i> Before opening the network, <code>StartNode</code> calls
+  <code>GetMyExternalIP</code>, which in the original code dials hard-coded IP-echo addresses from 2008
+  (<code>72.233.89.199</code> for <em>whatismyip.com</em> in 0.1.0; two more in 0.1.3). Those services
+  are still online but moved off those IPs years ago, so each connection blocks in <code>SYN&#8209;SENT</code>
+  until it times out&mdash;up to minutes under Wine, and twice in 0.1.3&mdash;before the IRC thread even
+  starts. The window appears frozen ("Not&nbsp;Responding"); the correct response is to <strong>wait</strong>,
+  not to force-quit, after which the node continues normally. Our <code>irc/</code> source removes the
+  stall outright by resolving the services by <strong>domain name</strong>
+  (<code>gethostbyname</code>) rather than the dead IPs, with a null guard; the rebuilt clients reach
+  IRC within seconds.</p>
+
+  <h3>B. LFnet still discovers peers&mdash;but they sit behind NAT</h3>
+  <p class="ind">The IRC network the client moved to in later versions,
+  <strong>LFnet (<code>irc.lfnet.org</code>), is still alive</strong>, still hosts <code>#bitcoin</code>,
+  and&mdash;remarkably&mdash;still has real Bitcoin nodes advertising there. A one-line server change
+  (<code>chat.freenode.net</code>&rarr;<code>irc.lfnet.org</code>, via an <code>IRC_SERVER</code> macro)
+  is enough, because LFnet speaks the 2009 protocol unmodified and&mdash;unlike Freenode (Section&nbsp;VI&#8209;C)&mdash;does
+  not ban the advertisement nick, so the original <code>u</code> prefix is kept here. The
+  rebuilt client registers (<code>001</code>&ndash;<code>004</code>), <code>JOIN</code>s,
+  <code>WHO</code>s and decodes live <code>u&lt;base58check&gt;</code> nicks back into addresses&mdash;in
+  our capture, <code>158.140.180.83:8333</code> and <code>76.17.176.13:8333</code> (Bitcoin Core's
+  <em>BlueMatt</em> is still in the channel). One important caveat: <em>advertising</em> an address is
+  not the same as being <em>reachable</em> at it&mdash;every node we found advertised on LFnet sat
+  behind NAT and refused the connection (<code>76.17.176.13</code> and <code>158.140.180.83</code> both
+  did), so the discovery half works (the nick decodes to a real address) but the connect half fails
+  unless the node is genuinely reachable (port-forwarded or on the same LAN). To close the loop for the
+  mining demo we therefore advertised a connectable peer of our own (a bot in <code>#bitcoin</code> plus
+  a listener); the client decoded it, connected, populated <code>vNodes</code>, and mined&mdash;the full
+  2009 path of discovery&nbsp;&rarr;&nbsp;connection&nbsp;&rarr;&nbsp;mining. No code change beyond the
+  server name is required on LFnet; even the stock 2009 binary works there via a single
+  <code>/etc/hosts</code> redirect.</p>
+
+  <h3>C. Modern Freenode: four layers of drift</h3>
+  <p class="ind">Freenode is reachable too, but only after peeling back four independent
+  incompatibilities. <i>(i)&nbsp;Line endings:</i> the client terminates every IRC line with a bare
+  <code>\r</code>, but Freenode now runs InspIRCd&#8209;3, which expects <code>\r\n</code> and otherwise
+  never parses the client's <code>NICK</code>/<code>PONG</code> ("Registration&nbsp;timeout"). Ending the
+  five lines the client sends in <code>\r\n</code>&mdash;the four format strings and the <code>'\r'</code>
+  appended to the <code>PONG</code>&mdash;fixes it; this is the entire <code>irc.cpp</code> protocol fix,
+  and it is harmless on LFnet. (Without recompiling, the same effect is obtained by a one-byte
+  <code>0x0D</code>&rarr;<code>0x0A</code> patch of each terminator in the binary&mdash;Freenode also
+  accepts a bare <code>\n</code>&mdash;or by a man&#8209;in&#8209;the&#8209;middle proxy.)
+  <i>(ii)&nbsp;Hostname NOTICE:</i> before sending <code>NICK</code> the client blocks until a hostname
+  NOTICE matches a literal substring; an IP with reverse DNS yields <code>Found your hostname</code>,
+  which matches natively, so no action is needed in the common case.
+  <i>(iii)&nbsp;IP reputation:</i> Freenode <em>Z&#8209;lines</em> addresses by reputation&mdash;our
+  residential IP after repeated attempts, and, worse, any Cloudflare&nbsp;WARP egress, which is listed in
+  the DroneBL proxy/VPN blocklist&mdash;so a clean IP is required (a fresh residential lease registered
+  immediately: <code>001</code>&ndash;<code>004</code>, <code>JOIN</code>, <code>WHO</code>, channel
+  list, ChanServ welcome). <i>(iv)&nbsp;The advertisement nick is itself banned:</i> to advertise a peer
+  one needs a bot whose nick is the <code>u&lt;base58check&gt;</code> of an address, but Freenode's
+  anti-spam now rejects that very nick shape (<code>432 &hellip; Suspected spam</code>), a relic of the
+  2009-era clients that once flooded it. The consequence reshapes the channel: of the <strong>77</strong>
+  members our registered client enumerated in a <code>WHO</code>/<code>NAMES</code> of
+  <code>#bitcoin</code>, <strong>zero</strong> decoded to a <code>u&lt;base58check&gt;</code> address and
+  <strong>all were people</strong>&mdash;among them Adam Back, Luke Dashjr, Ruben Somsen and Lisa Neigut,
+  and even the anti-spam entity whose name (<code>Neo`Nemesis</code>) appears in our own
+  <code>Z&#8209;lined</code> errors. A once machine-readable discovery channel is now simply a human chat
+  room, its nodes evicted by the filter meant to stop their flood. We tested whether a different
+  <em>prefix</em> would dodge it&mdash;a client advertising with <code>n&lt;base58check&gt;</code> rather
+  than <code>u&lt;base58check&gt;</code>&mdash;in a clean side-by-side on one fresh IP: the
+  <code>x&lt;digits&gt;</code> client registered, stayed connected and <strong>mined four blocks</strong>
+  (<code>height&nbsp;0&nbsp;&rarr;&nbsp;4</code>) with no ban for the whole session, whereas on that
+  <em>same</em> IP an <code>n&lt;base58check&gt;</code> nick registered (<code>001</code>&ndash;<code>004</code>),
+  <code>JOIN</code>ed, and was <strong>Z-lined about one second after the <code>JOIN</code></strong>. Same
+  clean IP, opposite outcomes&mdash;so the trigger is the nick: the filter targets the base58-address
+  <em>shape</em> (a letter plus a long mixed-case blob), not the <code>u</code> character, and only the
+  addressless <code>x&lt;digits&gt;</code> form survives, which is why the Freenode build forces it
+  with a source <code>#define&nbsp;IRC_FORCE_XNICK</code> baked into <code>irc.cpp</code> (no
+  <code>-D</code> flag). One cannot advertise an address on Freenode at all; for the mining
+  demonstration we therefore supply the peer directly&mdash;a held socket, or a proxy injecting a
+  fabricated <code>JOIN</code> for a reachable address&mdash;after which the Freenode client connected to it
+  and mined those blocks on the January&nbsp;2009 genesis (<code>height&nbsp;0&nbsp;&rarr;&nbsp;4</code>,
+  <code>proof-of-work&nbsp;found</code>). The 2009 IRC bootstrap is therefore not dead, but the two
+  networks fail in opposite ways: <strong>Freenode is reachable again&mdash;you can register and mine,
+  but not discover</strong> (the channel is people, not nodes); <strong>LFnet still does real discovery,
+  but its advertised peers sit behind NAT</strong> and refuse connection. Each works for exactly the half
+  the other cannot. The Freenode half-failure is worth stating precisely, because it is a <em>policy</em>
+  limit, not a protocol one: the client and the 2009 IRC bootstrap are fully capable of advertising and
+  discovering on Freenode&mdash;the <code>\r\n</code> fix already gets a node registered, joined and reading
+  the channel&mdash;and the <em>only</em> remaining blocker is the anti-spam rule that Z-lines the
+  base58-address nick shape. Were that rule lifted (or were the same build pointed at any network that
+  permits the advertisement nick&mdash;LFnet today, or a private/self-hosted IRC server one controls),
+  the <code>u&lt;base58check&gt;</code> advertise-and-discover path would light up on it unchanged. This is
+  the relevant fact for anyone wanting to <strong>revive the legacy IRC bootstrap</strong>: nothing in the
+  client needs further repair; one only needs a host network whose policy allows the address nick.</p>
+
+  <h2>VII.&nbsp;&nbsp;Future Work</h2>
+  <p class="ind">The wxWidgets GUI is no longer a pending item: the November&nbsp;2008 rebuild already
+  is a working windowed node that mines from a button (Sections II&ndash;IV). Three directions remain.</p>
+
+  <p class="ind"><i>a) Peer discovery for the November&nbsp;2008 node.</i> The preview shipped <em>no</em>
+  discovery whatsoever&mdash;no IRC, no seeds&mdash;so the rebuild can only mine standalone; Satoshi
+  added the IRC bootstrap only for the public 0.1.0 release. Grafting that 0.1.0 IRC mechanism onto the
+  nov08 core is the natural next step, and it immediately raises the question the revived 0.1.x clients
+  already pose: <em>which</em> network, and whether one is enough. The architecture is pluggable&mdash;the
+  server is a one-line macro&mdash;so three options present themselves.</p>
+
+  <p><i>Community networks (e.g. Libera.Chat) are the wrong host.</i> Libera, where Freenode's community
+  migrated after the 2021 takeover, would hit the same walls: to a social IRC network, thousands of nodes
+  advertising with throwaway address-nicks and reconnecting <em>is</em> bot traffic, so its DNSBLs,
+  rate-limits and acceptable-use policy would reject it exactly as Freenode does. There is also a hard
+  protocol mismatch: the 2009 client speaks only <strong>plaintext IRC on port&nbsp;6667</strong>, with no
+  TLS and no SASL authentication, whereas modern networks increasingly expect a TLS connection
+  (port&nbsp;6697) and SASL login&mdash;so the old client cannot even present itself the way they want. The
+  conflict is structural, not incidental.</p>
+  <p><i>A dedicated ircd is the LFnet model, with its trade-offs.</i> Running a purpose-built server
+  (which is what LFnet is) removes the anti-abuse fight entirely: the <code>u&lt;base58check&gt;</code>
+  flood is expected traffic, not spam, and the operator sets <code>NICKLEN</code>, registration and line-
+  ending policy to match the 2009 client. The cost is centralisation (a single seizable point, and a
+  bootstrap that must itself be bootstrapped by a hard-coded address) and a trust problem: IRC authenticates
+  nothing, so whoever controls the channel can advertise poisoned peers and <em>eclipse</em> new nodes&mdash;
+  the very weakness, alongside the privacy leak of publishing one's IP in a public channel and poor
+  scalability, that led Bitcoin to retire IRC around 2011 in favour of DNS seeds, hard-coded seeds and
+  <code>addr</code> gossip.</p>
+  <p><i>Federation and authentication restore the original spirit safely.</i> Rather than one network,
+  the client could iterate a <em>list</em> of small ircds (0.1.3 already does this for its external-IP
+  probe), so discovery survives any single network banning or vanishing&mdash;genuine censorship resistance,
+  since silencing a node would require banning it everywhere at once. Layering a censorship-resistant
+  transport (Tor/I2P) hides who is advertising and defeats IP-level blocking, and <em>signing</em> the
+  advertised address with the node's key would close the eclipse/poisoning hole the 2009 design left open.
+  Taken to its conclusion, the &ldquo;IRC channel as a public bulletin board of signed node addresses&rdquo;
+  is essentially what a modern decentralised relay protocol such as Nostr already provides&mdash;making it a
+  fitting 2026 successor to the mechanism reconstructed here.</p>
+
+  <p class="ind"><i>b) A native Linux (ELF) build.</i> The core already carries partial Win32&#8596;POSIX
+  shims (<code>compat.h</code>, and a <code>winsock2.h</code>&rarr;BSD-sockets shim), so pure files
+  compile to ELF (<code>sha.cpp</code> builds cleanly); completing the shim&mdash;thread synchronisation
+  and <code>/dev/urandom</code> entropy in place of the remaining Win32 calls&mdash;would yield a native
+  console node, and a wxGTK port would carry the GUI across. Cross-compiling to a Windows <code>.exe</code>
+  run under Wine remains the supported path today.</p>
+
+  <p class="ind"><i>c) The fuller 0.1.0 UI on the nov08 core.</i> Optionally, the richer 0.1.0 desktop
+  interface could be back-ported onto the November&nbsp;2008 consensus core, replacing the minimal status
+  window of the rebuild while keeping the byte&#8209;exact genesis underneath.</p>
+
+  <h2>VIII.&nbsp;&nbsp;Conclusion</h2>
+  <p class="ind">The contributions are historical, educational and forensic rather than financial, and
+  are two. First, the November&nbsp;2008 preview is rendered executable and verifiable&mdash;as a working
+  wxWidgets node that boots in its own window and mines from a button&mdash;reproducing the earliest known
+  genesis block byte&#8209;for&#8209;byte and, through it, recovering an undocumented consensus
+  detail&mdash;the renumbering of <code>OP_CODESEPARATOR</code> and <code>OP_CHECKSIG</code>&mdash;that
+  checks against a value Satoshi himself hard-coded. Second, the first public releases (0.1.0/0.1.3) are
+  recompiled from source with a small <code>irc.cpp</code> fix that revives their IRC peer discovery on the
+  surviving LFnet network and, by bridging four layers of protocol and anti-abuse drift, on modern
+  Freenode&mdash;carried in both cases through to mining on the January&nbsp;2009 chain. Every from-source
+  build&mdash;the rebuild, 0.1.0/0.1.3 and the four IRC clients&mdash;is driven from Satoshi's own
+  <em>unedited</em> makefiles by one shared period toolchain (<code>toolchain/</code>: wxWidgets&nbsp;2.8.12
+  + Berkeley&nbsp;DB&nbsp;4.8 + Boost&nbsp;1.55 + OpenSSL&nbsp;0.9.8 with Satoshi's original
+  <code>libeay32.dll</code>), with both the library and source diffs committed under <code>patches/</code>
+  so the whole pipeline is reproducible. This toolchain differs from Satoshi's 2009 one only in what
+  surrounds his source: MinGW GCC ~3.4 native on Windows becomes MinGW&#8209;w64 GCC&nbsp;10 cross-compiling
+  from Linux (still buildable natively on Windows from the same makefiles), and the
+  <code>mingwm10.dll</code> runtime becomes <code>libgcc_s_dw2-1.dll</code> + <code>libstdc++-6.dll</code>,
+  while the OpenSSL&nbsp;0.9.8 cryptography is identical. Because the compiler differs, a rebuilt executable
+  is not byte-identical to Satoshi's, so his original 0.1.0/0.1.3 binaries are kept committed and a rebuild
+  only replaces them in the working tree. The project is archived at&nbsp;[5].</p>
+
+
+  <h2 class="span references">References</h2>
+  <div class="refs span">
+  <p>[1] Cryddit, "Bitcoin source (November 2008 preview)," BitcoinTalk forum, 2013.
+  <a href="https://bitcointalk.org/index.php?topic=382374.0">bitcointalk.org/index.php?topic=382374.0</a></p>
+  <p>[2] serhack, "The Story Behind the Alternative Genesis Block of Bitcoin."
+  <a href="https://serhack.me/articles/story-behind-alternative-genesis-block-bitcoin/">serhack.me/articles/story-behind-alternative-genesis-block-bitcoin</a></p>
+  <p>[3] Satoshi Nakamoto Institute, "The Complete Satoshi&mdash;Source Code" (archive of the
+  November&nbsp;2008 preview and the 0.1.0/0.1.3 releases used here).
+  <a href="https://satoshi.nakamotoinstitute.org/code/">satoshi.nakamotoinstitute.org/code</a></p>
+  <p>[4] "Has anyone tried to reverse the original pre-release Bitcoin&hellip;," r/btc, Reddit
+  (thread containing the genesis header preimage in an anonymous, later-deleted comment).
+  <a href="https://www.reddit.com/r/btc/comments/7o0ejr/">reddit.com/r/btc/comments/7o0ejr</a></p>
+  <p>[5] J. A. De Vicente L&oacute;pez, <i>bitcoin-history</i> project (reconstruction and
+  IRC-revived 0.1.x clients), GitHub, 2026.
+  <a href="https://github.com/Kino1994/bitcoin-history">github.com/Kino1994/bitcoin-history</a></p>
+  </div>
+
+
+</div>
+</body>
+</html>
